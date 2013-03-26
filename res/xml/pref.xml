@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen 
+    xmlns:android="http://schemas.android.com/apk/res/android" 
+    xmlns:hitsuji="http://hitsuji.com">
+  <PreferenceCategory android:title="Synthesized WebPage Info">
+    <EditTextPreference  
+      android:key="MixedPageUrl"
+      android:title="Content Url"
+      android:persistent="true"
+			android:summary="Content URL for synthesis with capture image. Set file:///mnt/sdcard/... if use innernal storage."
+      android:defaultValue="http://www.google.com"
+      android:dialogTitle="URL"
+      android:dialogMessage="input URL"></EditTextPreference>
+  </PreferenceCategory>
+  <PreferenceCategory android:title="Save Image">
+    <EditTextPreference  
+      android:key="SaveImagePath"
+      android:title="Path"
+      android:dialogTitle="Save Image Path"
+      android:persistent="true"
+      android:defaultValue="/mnt/sdcard/TravelingCamera.png"
+			android:summary="Path to save image. Format is fixed to PNG."      
+      android:dialogMessage="input path"></EditTextPreference>       
+  </PreferenceCategory>
+  <PreferenceCategory android:title="Image Processing Parameters">
+    <CheckBoxPreference  
+      android:key="ImageProcessTarget"
+      android:title="Image Process Target"
+      android:persistent="true"
+      android:summaryOff="Process Camera Image"
+      android:summaryOn="Process Browser Image"
+      android:defaultValue="false">
+    </CheckBoxPreference>         
+    <CheckBoxPreference  
+      android:key="InvertMask"
+      android:title="Invert Mask"
+      android:persistent="true"
+      android:defaultValue="false">
+    </CheckBoxPreference>             
+    <com.hitsuji.android.SeekBarPreference
+    	android:key="HueUpperThreshold"
+      android:title="Hue Upper Threashold"
+      android:defaultValue="255"
+      android:summary="Mask Condition. DEFAULT:255"
+      hitsuji:max="255"
+      hitsuji:min="0"
+      hitsuji:unitsLeft=""
+      hitsuji:unitsRight=""/>
+    <com.hitsuji.android.SeekBarPreference
+    	android:key="HueLowerThreshold"
+      android:title="Hue Lower Threashold"
+      android:defaultValue="0"
+      android:summary="Mask COndition. DEFAULT:0"
+      hitsuji:max="255"
+      hitsuji:min="0"
+      hitsuji:unitsLeft=""
+      hitsuji:unitsRight=" "/>
+    <com.hitsuji.android.SeekBarPreference
+    	android:key="SaturationUpperThreshold"
+      android:title="Saturation Upper Threashold"
+      android:defaultValue="100"
+      android:summary="Mask Condition. DEFAULT:100"
+      hitsuji:max="255"
+      hitsuji:min="0"
+      hitsuji:unitsLeft=""
+      hitsuji:unitsRight=" "/>
+    <com.hitsuji.android.SeekBarPreference
+    	android:key="SaturationLowerThreshold"
+      android:title="Saturation Lower Threashold"
+      android:defaultValue="0"
+      android:summary="Mask Condition. DEFAULT:0"
+      hitsuji:max="255"
+      hitsuji:min="0"
+      hitsuji:unitsLeft=""
+      hitsuji:unitsRight=""/>
+    <com.hitsuji.android.SeekBarPreference
+    	android:key="BrightnesUpperThreshold"
+      android:title="Brightnes Upper Threashold"
+      android:defaultValue="255"
+      android:summary="Mask Condition. DEFAULT:255"
+      hitsuji:max="255"
+      hitsuji:min="0"
+      hitsuji:unitsLeft=""
+      hitsuji:unitsRight=""/>
+    <com.hitsuji.android.SeekBarPreference
+    	android:key="BrightnesLowerThreshold"
+      android:title="Brightnes Lower Threashold"
+      android:defaultValue="128"
+      android:summary="Mask Condition. DEFAULT:128"
+      hitsuji:max="255"
+      hitsuji:min="0"
+      hitsuji:unitsLeft=""
+      hitsuji:unitsRight=""/>    
+    <com.hitsuji.android.SeekBarPreference
+    	android:key="SmoothingFilterSize"
+      android:title="Smoothing Filter Size"
+      android:summary="Preprocess for generate mask. DEFUALT:1 SET ODD"
+      android:defaultValue="3"
+      hitsuji:max="9"
+      hitsuji:min="0"
+      hitsuji:unitsLeft=""
+      hitsuji:unitsRight=" "/>
+    <com.hitsuji.android.SeekBarPreference
+    	android:key="DilateErudeTimes"
+      android:title="Dilate Erude Times"
+      android:summary="Postprocess for getenarate mask. DEFUALT:-5"
+      android:defaultValue="-5"
+      hitsuji:max="10"
+      hitsuji:min="-10"
+      hitsuji:unitsLeft=""
+      hitsuji:unitsRight=" "/>
+
+  </PreferenceCategory>
+</PreferenceScreen>
