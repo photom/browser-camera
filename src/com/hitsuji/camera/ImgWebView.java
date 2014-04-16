@@ -22,6 +22,7 @@ import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Picture;
 import android.util.AttributeSet;
@@ -37,6 +38,7 @@ public class ImgWebView extends WebView {
 	private static final String TAG = ImgWebView.class.getSimpleName();
 	private int mDefaultWidth = -1;
 	private int mDefaultHeight = -1;
+	private int mContentWidth = -1;
 	private int mX = 0;
 	private int mY = 0;
 
@@ -51,39 +53,47 @@ public class ImgWebView extends WebView {
 	private Scalar lo, hi;
 	private Scalar bl, wh;
 	
-	private float mScale = 1.0f;
+	private volatile float mScale = 1.0f;
+	
+	private BaseActivity activity;
 	
 	public ImgWebView(Context context, AttributeSet set) {
 		super(context, set);
 	}
-	public ImgWebView(Context context) {
+	public ImgWebView(BaseActivity context) {
 		super(context);
 		// TODO Auto-generated constructor stub
 	
 		mDefP = new Point(-1, -1);
-		
+		activity = context;
 		bl = new Scalar(0, 0, 255, 255);
 		wh = new Scalar(255, 255, 255, 255);	
 	}
 
-	public Bitmap drawBitmap(int width, int height) {
-		return drawBitmap(width, height, 1.0f);
-	}
-	public Bitmap drawBitmap(int width, int height, float scale) {
-		if (width<=0 || height<=0) return null;
+	public Bitmap drawBitmap(int cameraWidth, int cameraHeight, 
+			float scale, float cameraScale) {
+		if (cameraWidth<=0 || cameraHeight<=0) return null;
 		//if (scale < 1) scale = 1;
-		int cw = (int)(getContentWidth() * getScale());
-		int ch = (int)(getContentHeight() * getScale());
-		int imgWidth = width > cw ? width : cw;
-		int imgHeight = height > ch ? height : ch;
-		Log.d(TAG, "bmp w:"+width +" h:"+ height + " scale:"+scale);
+		/*
+		int cw = (int)(getContentWidth() * mScale * cameraScale);
+		int ch = (int)(getContentHeight() * mScale * cameraScale);
+		cameraWidth *= cameraScale;
+		cameraHeight *= cameraScale;
+		*/
+		int cw = (int)(getContentWidth() * mScale);
+		int ch = (int)(getContentHeight() * mScale);
+		int imgWidth = getWidth() > cw ? getWidth() : cw;
+		int imgHeight = getHeight() > ch ? getHeight() : ch;
+		Log.d(TAG, "bmp w:"+cameraWidth +" h:"+ cameraHeight + " scale:"+scale);
 		Log.d(TAG, "webview w:"+ getWidth() +" h:"+ getHeight());
 		Log.d(TAG, "img w:"+ imgWidth +" h:"+ imgHeight);
 		Log.d(TAG, "cw:"+ cw +" ch:"+ ch);
+		Bitmap bitmap;
 		//this.setInitialScale(200);
 		//Bitmap bitmap = Bitmap.createBitmap((int)(width), (int)(height*scale), Config.ARGB_8888);
 		//Bitmap bitmap = Bitmap.createBitmap(width, height, Config.ARGB_8888);
-		Bitmap bitmap = Bitmap.createBitmap(imgWidth, imgHeight, Config.ARGB_8888);
+		bitmap = Bitmap.createBitmap(imgWidth, imgHeight, Config.ARGB_8888);
+		//bitmap = Bitmap.createBitmap(getWidth(), getHeight(), Config.ARGB_8888);
 		Canvas canvas = new Canvas(bitmap);
 		/*
 		Paint paint = new Paint();
@@ -97,15 +107,29 @@ public class ImgWebView extends WebView {
 		//if (scale<=1) return bitmap;
 		//return bitmap;
 		Log.d(TAG, "pre x:"+ mX +" y:"+ mY);
-		if (mX+width>imgWidth) 
-			mX = imgWidth-width;
-		if (mY+height>imgHeight) 
-			mY = imgHeight-height;
-		Log.d(TAG, "post x:"+ mX +" y:"+ mY);
-		Bitmap bmp = Bitmap.createBitmap(bitmap, mX, mY, width, height);
+		if (mX+cameraWidth>imgWidth) 
+			mX = imgWidth-cameraWidth;
+		if (mY+cameraHeight>imgHeight) 
+			mY = imgHeight-cameraHeight;
+		
+		Matrix matrix = new Matrix();
+		float fx = (float)cameraWidth/(float)getWidth();
+		float fy = (float)cameraHeight/(float)getHeight();
+		matrix.setScale(fx, fy);
+		Log.d(TAG, "post x:"+ mX +" y:"+ mY + " matrix:"+matrix + 
+				" fx:"+fx + " fy:"+fy + " bitmapw:"+bitmap.getWidth() + " bitmaph:"+bitmap.getHeight());
+		Bitmap bmp = Bitmap.createBitmap(bitmap, mX, mY, 
+				getWidth(), getHeight(), matrix, true);
+				
+		//Bitmap bmp = Bitmap.createBitmap(bitmap, mX, mY, 
+		//		cameraWidth, cameraHeight);
 		bitmap.recycle();
 		return bmp;
 
+	}
+	
+	public void setScale(float scale){
+		this.mScale = scale;
 	}
 	
 	public Bitmap drawBitmap() {
@@ -118,27 +142,7 @@ public class ImgWebView extends WebView {
 	}
 	
 	public int getContentWidth(){
-
-		Class<WebView> c = WebView.class;
-		Field f;
-		try {
-			f = c.getDeclaredField("mContentWidth");
-			f.setAccessible(true);
-			return f.getInt(this);
-		} catch (SecurityException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (NoSuchFieldException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IllegalArgumentException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IllegalAccessException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		return -1;
+		return mContentWidth;
 	}
 	public void setDefaultSize(int width, int height) {
 		// TODO Auto-generated method stub
@@ -153,13 +157,13 @@ public class ImgWebView extends WebView {
 	}
 	public void move(float x, float y) {
 		// TODO Auto-generated method stub
-		int cw = (int)(this.getScale() * getContentWidth());
-		int ch = (int)(this.getScale() * getContentHeight());
+		int cw = (int)(mScale * getContentWidth());
+		int ch = (int)(mScale * getContentHeight());
 		Log.d(TAG, "move mx:"+mX + " mY:"+mY + 
 				" defw:"+mDefaultWidth +  " defy:"+mDefaultHeight + 
 				" webw:"+getWidth() + " webh:"+getHeight()+
 				" contw:"+getContentWidth() + " conth:"+getContentHeight()+
-				" x:"+x + " y:"+y + " scale:"+this.getScale() + 
+				" x:"+x + " y:"+y + " scale:"+mScale +
 				" cw:"+cw + " cy:"+ch);
 		if (mX+x<0) x = 0;
 		if (mY+y<0) y = 0;
@@ -178,30 +182,27 @@ public class ImgWebView extends WebView {
 		if (mY+y+mDefaultHeight>thh) y = 0;
 		mX += x;
 		mY += y;
+		Log.d(TAG, "mx:"+mX +" my:"+mY + " x:"+x + " y:"+y);
 	}
-	public int getX(){
+	public float getX(){
 		return mX;
 	}
-	public int getY(){
+	public float getY(){
 		return mY;
 	}
-	public void movePrescale(int w, int h) {
-		// TODO Auto-generated method stub
-		if (mX > w) mX = w-mDefaultWidth;
-		if (mY > h) mY = h-mDefaultHeight;
-	}
-	
-	public Mat createExtractMatrics(){
+
+	public Mat createExtractMatrics(int width, int height, float cameraScale){
+		Log.d(TAG, "createExtractMatrics widthidth:"+width + " height:"+height + " mscale:"+mScale + " camerascale:"+cameraScale);
 		initFields();
 		
-		Bitmap bmp = drawBitmap(mDefaultWidth, mDefaultHeight, mScale);
+		Bitmap bmp = drawBitmap(width, height, mScale, cameraScale);
 		if (bmp==null) return null;
 		
 
 		Utils.bitmapToMat(bmp, mIntermediateMat);
 		Imgproc.cvtColor(mIntermediateMat, mIntermediateMat3, Imgproc.COLOR_RGB2HSV_FULL);
 
-		int size = TravelingBrowserActivity.getSmoothingFilterSize();
+		int size = activity.getSmoothingFilterSize();
 		if (size > 0)
 			Imgproc.medianBlur(mIntermediateMat3, mIntermediateMat3, size);
 				
@@ -215,7 +216,7 @@ public class ImgWebView extends WebView {
 		for (int i=0; i<contours.size(); i++) {
 			MatOfPoint m = contours.get(i);
 			double area = Imgproc.contourArea(m);
-			if (area > TravelingCameraView.THRESHOLD_AREA ) {
+			if (area > BaseActivity.THRESHOLD_AREA ) {
 				list.add(m);
 			}
 		}
@@ -225,19 +226,19 @@ public class ImgWebView extends WebView {
 		Mat mask = Mat.zeros(mIntermediateMat.rows(), mIntermediateMat.cols(), CvType.CV_8UC1);
 		Imgproc.drawContours(mask, list, -1, wh, Core.FILLED);
 
-		if (TravelingBrowserActivity.getDilateErudeTimes()>0){
+		if (activity.getDilateErudeTimes()>0){
 			Imgproc.dilate(mask, mask, 
-					mDefaultKernel3x3, mDefP, TravelingBrowserActivity.getDilateErudeTimes());
+					mDefaultKernel3x3, mDefP, activity.getDilateErudeTimes());
 			Imgproc.erode(mask, mask, 
-					mDefaultKernel3x3, mDefP, TravelingBrowserActivity.getDilateErudeTimes());
-		} else if  (TravelingBrowserActivity.getDilateErudeTimes()<0){
+					mDefaultKernel3x3, mDefP, activity.getDilateErudeTimes());
+		} else if  (activity.getDilateErudeTimes()<0){
 			Imgproc.erode(mask, mask, 
-					mDefaultKernel3x3, mDefP, TravelingBrowserActivity.getDilateErudeTimes());
+					mDefaultKernel3x3, mDefP, activity.getDilateErudeTimes());
 			Imgproc.dilate(mask, mask, 
-					mDefaultKernel3x3, mDefP, TravelingBrowserActivity.getDilateErudeTimes());
+					mDefaultKernel3x3, mDefP, activity.getDilateErudeTimes());
 		}
 		
-		if (TravelingBrowserActivity.getInvertMask())
+		if (activity.getInvertMask())
 			Core.bitwise_not(mask, mask);
 		mIntermediateMat.copyTo(rgba, mask);
 		mask.release();
@@ -252,15 +253,15 @@ public class ImgWebView extends WebView {
 	}
 	
 
-	public Pair<Mat, Mat> createMargeMatrics(){
-		Mat rgba = new Mat();
+	public Pair<Mat, Mat> createMargeMatrics(int width, int height){
+		Log.d(TAG, "createMargeMatrics width:"+width + " height:"+height + " mscale:"+mScale);
 		initFields();
-		Bitmap bmp = drawBitmap(mDefaultWidth, mDefaultHeight, mScale);
+		Bitmap bmp = drawBitmap(width, height, mScale, 1);
 		if (bmp==null) return null;
 		Utils.bitmapToMat(bmp, mIntermediateMat);
 		Imgproc.cvtColor(mIntermediateMat, mIntermediateMat3, Imgproc.COLOR_RGB2HSV_FULL);
 
-		int size = TravelingBrowserActivity.getSmoothingFilterSize();
+		int size = activity.getSmoothingFilterSize();
 		if (size > 0)
 			Imgproc.medianBlur(mIntermediateMat3, mIntermediateMat3, size);
 				
@@ -274,31 +275,30 @@ public class ImgWebView extends WebView {
 		for (int i=0; i<contours.size(); i++) {
 			MatOfPoint m = contours.get(i);
 			double area = Imgproc.contourArea(m);
-			if (area > TravelingCameraView.THRESHOLD_AREA ) {
+			if (area > BaseActivity.THRESHOLD_AREA ) {
 				list.add(m);
 			}
-		}		
-		rgba.setTo(bl);
+		}
 		Mat mask = Mat.zeros(mIntermediateMat.rows(), mIntermediateMat.cols(), CvType.CV_8UC1);
 		Imgproc.drawContours(mask, list, -1, wh, Core.FILLED);
 
-		if (TravelingBrowserActivity.getDilateErudeTimes()>0){
+		if (activity.getDilateErudeTimes()>0){
 			Imgproc.dilate(mask, mask, 
-					mDefaultKernel3x3, mDefP, TravelingBrowserActivity.getDilateErudeTimes());
+					mDefaultKernel3x3, mDefP, activity.getDilateErudeTimes());
 			Imgproc.erode(mask, mask, 
-					mDefaultKernel3x3, mDefP, TravelingBrowserActivity.getDilateErudeTimes());
-		} else if  (TravelingBrowserActivity.getDilateErudeTimes()<0){
+					mDefaultKernel3x3, mDefP, activity.getDilateErudeTimes());
+		} else if  (activity.getDilateErudeTimes()<0){
 			Imgproc.erode(mask, mask, 
-					mDefaultKernel3x3, mDefP, TravelingBrowserActivity.getDilateErudeTimes());
+					mDefaultKernel3x3, mDefP, activity.getDilateErudeTimes());
 			Imgproc.dilate(mask, mask, 
-					mDefaultKernel3x3, mDefP, TravelingBrowserActivity.getDilateErudeTimes());
+					mDefaultKernel3x3, mDefP, activity.getDilateErudeTimes());
 		}
 
 
-		rgba = new Mat(mIntermediateMat.height(), mIntermediateMat.width(), CvType.CV_8UC4);
+		Mat rgba = new Mat(mIntermediateMat.height(), mIntermediateMat.width(), CvType.CV_8UC4);
 		rgba.setTo(new Scalar(0,0,0,0));
 		
-		if (TravelingBrowserActivity.getInvertMask())
+		if (activity.getInvertMask())
 				Core.bitwise_not(mask, mask);
 		Core.add(rgba, mIntermediateMat, rgba, mask);
 		//Core.bitwise_not(mask, mIntermediateMat2);
@@ -316,17 +316,27 @@ public class ImgWebView extends WebView {
 		consumeFields();
 		return new Pair<Mat,Mat>(rgba, mask);
 	}
+
+	public Mat createMatrics(int width, int height){
+		Log.d(TAG, "createMatrics width:"+width + " height:"+height + " mscale:"+mScale);
+		Bitmap bmp = drawBitmap(width, height, mScale, 1);
+		if (bmp==null) return null;
+		Mat rgba = new Mat();
+		Utils.bitmapToMat(bmp, rgba);
+		bmp.recycle();
+		return rgba;
+	}
 	
 	private void initFields() {
 		lo = new Scalar(
-				TravelingBrowserActivity.getHueLowerThreshold(),
-				TravelingBrowserActivity.getSaturationLowerThreshold(),
-				TravelingBrowserActivity.getBrightnessLowerThreshold()
+				activity.getHueLowerThreshold(),
+				activity.getSaturationLowerThreshold(),
+				activity.getBrightnessLowerThreshold()
 				);
 		hi = new Scalar(
-				TravelingBrowserActivity.getHueUpperThreshold(),
-				TravelingBrowserActivity.getSaturationUpperThreshold(),
-				TravelingBrowserActivity.getBrightnessUpperThreshold()
+				activity.getHueUpperThreshold(),
+				activity.getSaturationUpperThreshold(),
+				activity.getBrightnessUpperThreshold()
 				);
 
 		mIntermediateMat = new Mat();
@@ -348,5 +358,25 @@ public class ImgWebView extends WebView {
 		mIntermediateMat3 = null;
 		mDefaultKernel3x3 = null;
 		mShapeningKernel3x3 = null;
+	}
+	
+    public static class JavaScriptInterface {
+    	ImgWebView imgWebView;
+    	public JavaScriptInterface(ImgWebView iwv){
+    		imgWebView = iwv;
+    	}
+        public int getContentWidth(String value) {
+        	Log.d(TAG, "JavaScriptInterface.getContentWidth val:"+value);
+            if (value != null) {
+            	int width = Integer.parseInt(value);
+            	imgWebView.mContentWidth = width;
+                return width;
+            } else 
+            	return -1;
+        }
+    }
+
+	public void initContentWidth() {
+		mContentWidth = -1;
 	}
 }

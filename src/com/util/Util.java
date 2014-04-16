@@ -12,6 +12,7 @@ import java.io.StreamCorruptedException;
 import java.io.UnsupportedEncodingException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.TimeZone;
 
@@ -233,5 +234,9 @@ public class Util {
 		    return null;
 		}
 	}
-
+	public static String currentTime(){
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd-HHmmss");
+		Date date = new Date();
+		return sdf.format(date);
+	}
 }

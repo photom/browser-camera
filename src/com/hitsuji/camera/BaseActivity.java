@@ -1,36 +1,211 @@
 package com.hitsuji.camera;
 
-import android.app.ActivityGroup;
-import android.app.LocalActivityManager;
-import android.content.Intent;
-import android.os.Bundle;
-import android.view.ViewGroup;
-import android.view.Window;
+import java.io.File;
 
-public class BaseActivity extends ActivityGroup {
-	private LocalActivityManager mLam;
+import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2;
+import org.opencv.android.LoaderCallbackInterface;
+import org.opencv.android.CameraBridgeViewBase.CvCameraViewFrame;
+import org.opencv.core.Mat;
+import org.opencv.core.Scalar;
 
-	private BaseActivity self;
-	public BaseActivity(){
-		super();
-		self = this;
+import com.util.Log;
+
+import android.app.Activity;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
+import android.os.Environment;
+import android.preference.PreferenceManager;
+import android.view.MenuItem;
+
+public abstract class BaseActivity extends Activity implements CvCameraViewListener2{
+	private static final String TAG = "BrowserActivity";
+	
+	private static final int CONNY_PARAM1 = 80;
+	private static final int CONNY_PARAM2 = 100;
+	public final static boolean TARGET_BROWSER = false;
+	public final static boolean TARGET_CAMERA = true;
+	public final static int THRESHOLD_AREA = 100;
+
+	public static final int VIEW_MODE_CAMERA  = 0;
+	public static final int VIEW_MODE_WEBVIEW = 2;
+	public static final int VIEW_MODE_EXTRACT = 3;
+	public static final int VIEW_MODE_MERGE = 5;
+	public static final int VIEW_MODE_SAVE = 6;
+	public static final int VIEW_MODE_SETTINGS = 7;
+
+	public static final int RET_CAMERA_ACTIVITY = 100;
+	
+	protected volatile int viewMode = VIEW_MODE_WEBVIEW;
+	
+	protected boolean invertMask;
+	protected int smoothingFilterSize;
+	protected int dilateErudeTimes;
+	protected int cannyParam1;
+	protected int cannyParam2;
+	protected String url;
+	protected String savePath;
+	protected int hueUpperThreshold;
+	protected int hueLowerThreshold;
+	protected int saturationUpperThreshold;
+	protected int saturationLowerThreshold;
+	protected int brightnessUpperThreshold;
+	protected int brightnessLowerThreshold;
+	protected boolean imageProcessTarget;
+	
+	protected int cameraWidth;
+	protected int cameraHeight;
+	protected int cameraViewWidth;
+	protected int cameraViewHeight;
+	
+	protected Scalar lo, hi;
+	protected Mat mRgba;
+	
+	protected CameraView mCameraView;
+	protected ImgWebView mWebview;
+
+	protected MenuItem mItemCamera;
+	protected MenuItem mItemWebview;
+	protected MenuItem mItemExtract;
+	protected MenuItem mItemMerge;
+	protected MenuItem mItemSaveImage;
+	protected MenuItem mItemSettings;
+	
+	protected BaseLoaderCallback  mLoaderCallback = new BaseLoaderCallback(this) {
+		@Override
+		public void onManagerConnected(int status) {
+			switch (status) {
+			case LoaderCallbackInterface.SUCCESS:
+			{
+				Log.i(TAG, "OpenCV loaded successfully");
+				if(mCameraView==null)
+					initCameraView();
+				mCameraView.enableView();
+			} break;
+			default:
+			{
+				super.onManagerConnected(status);
+			} break;
+			}
+		}
+	};
+	
+	protected abstract int getCameraViewId();
+	
+	protected void initCameraView(){
+		mCameraView = (CameraView) findViewById(getCameraViewId());
+		mCameraView.setCvCameraViewListener(this);
+		mCameraView.enableFpsMeter();
 	}
 	
-	@Override
-	public void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-		setContentView(R.layout.group);
-		mLam = getLocalActivityManager();
-
-		setView(TravelingCameraActivity.class, "browser");
-		setView(TravelingCameraActivity.class, "camera");
+	public void setPrefs(Context context){
+		SharedPreferences prefs;
+		prefs = PreferenceManager.getDefaultSharedPreferences(context);
+		invertMask = prefs.getBoolean("InvertMask", false);
+		smoothingFilterSize = prefs.getInt("SmoothingFilterSize", 1);
+		if (smoothingFilterSize % 2 == 0) {
+			smoothingFilterSize += 1;
+		}
+		hueUpperThreshold = prefs.getInt("HueUpperThreshold", 100);
+		hueLowerThreshold = prefs.getInt("HueLowerThreshold", 0);
+		saturationUpperThreshold = prefs.getInt("SaturationUpperThreshold", 100);
+		saturationLowerThreshold = prefs.getInt("SaturationLowerThreshold", 0);
+		brightnessUpperThreshold = prefs.getInt("BrightnesUpperThreshold", 100);
+		brightnessLowerThreshold = prefs.getInt("BrightnesLowerThreshold", 0);
+		if (!prefs.getString("ImageProcessTarget", "Browser").equals("Browser") &&
+			!prefs.getString("ImageProcessTarget", "Browser").equals("Camera")){
+			Editor editor = prefs.edit();
+			editor.putString("ImageProcessTarget", "Browser");
+			editor.commit();
+		}
+		imageProcessTarget = prefs.getString("ImageProcessTarget", "Browser").equals("Browser") ? 
+				TARGET_BROWSER : TARGET_CAMERA;
+		cannyParam1 = CONNY_PARAM1;
+		cannyParam2 = CONNY_PARAM2;
+		dilateErudeTimes = prefs.getInt("DilateErudeTimes", 3);
+		url = prefs.getString("MixedPageUrl", "http://www.google.com/imghp");
+		String app = context.getResources().getString(R.string.app_name).replaceAll(" ", "_");
+		String dir = Environment.DIRECTORY_PICTURES + app+"/"; 
+		File dirF = new File(dir);
+		if (!dirF.exists())
+			dirF.mkdirs();
+		//savePath = prefs.getString("SaveImagePath", dir);
+		savePath = dir;
+		Log.d(TAG, "onresume filtersize:" + smoothingFilterSize +
+				"dilateerudetime:"+ dilateErudeTimes+
+				" cannyparam1:" + cannyParam1 + " cannyparam2:" + cannyParam2);		
 	}
 	
-  private void setView(Class<?> cls, String name){
-	  Intent intent = new Intent(getApplicationContext(), cls);
-	  Window window = mLam.startActivity(name, intent);
-	  ViewGroup group = (ViewGroup)findViewById(R.id.grouplayout);
-	  group.addView(window.getDecorView());
-    }
+	public int getSmoothingFilterSize(){
+		return smoothingFilterSize;
+	}
+	public int getCanneyParam1(){
+		return cannyParam1;
+	}
+	public int getCanneyParam2(){
+		return cannyParam2;
+	}
+	public int getDilateErudeTimes(){
+		return dilateErudeTimes;
+	}
+	public String getSaveImagePath(){
+		return savePath;
+	}
+	public boolean getInvertMask(){
+		return invertMask;
+	}
+	public int getHueUpperThreshold(){
+		return hueUpperThreshold;
+	}
+	public int getHueLowerThreshold(){
+		return hueLowerThreshold;
+	}	
+	public int getSaturationUpperThreshold(){
+		return saturationUpperThreshold;
+	}
+	public int getSaturationLowerThreshold(){
+		return saturationLowerThreshold;
+	}	
+	public int getBrightnessUpperThreshold(){
+		return brightnessUpperThreshold;
+	}
+	public int getBrightnessLowerThreshold(){
+		return brightnessLowerThreshold;
+	}	
+	public boolean getTarget(){
+		return imageProcessTarget;
+	}
+	
+	protected void setThreshold(){
+		lo = new Scalar(
+				hueLowerThreshold,
+				saturationLowerThreshold,
+				brightnessLowerThreshold);
 
+		hi = new Scalar(
+				hueUpperThreshold,
+				saturationUpperThreshold,
+				brightnessUpperThreshold);
+	}
+	
+	protected void setRgbaMatrics(CvCameraViewFrame inputFrame){
+		mRgba = inputFrame.rgba();
+	}
+	
+	protected boolean hasCameraInfo(){
+		SharedPreferences prefs;
+		prefs = PreferenceManager.getDefaultSharedPreferences(this);
+		int width = prefs.getInt("CAMERA_WIDTH", -1);
+		int height = prefs.getInt("CAMERA_HEIGHT", -1);
+		cameraWidth = width;
+		cameraHeight = height;
+		cameraViewWidth = prefs.getInt("CAMERA_VIEW_WIDTH", -1);
+		cameraViewHeight = prefs.getInt("CAMERA_VIEW_HEIGHT", -1);
+		Log.d(TAG, "BaseActivity.hasCameraInfo"+
+				" width:"+width + " height:"+height + 
+				" cameraviewwidth:"+cameraViewWidth +
+				" cameraviewheight:"+cameraViewHeight);
+		return width>0 && height>0 && cameraViewWidth>0 && cameraViewHeight>0;
+	}
 }

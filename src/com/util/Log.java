@@ -5,8 +5,8 @@ import java.lang.reflect.Method;
 
 public class Log {
 
-	private static final boolean DEBUG = false;
-	private static final boolean VERBOSE = false;
+	private static final boolean DEBUG = true;
+	private static final boolean VERBOSE = true;
 	
 
 	private final static Class [] klasses = {String.class, String.class};
@@ -51,5 +51,8 @@ public class Log {
 	}
 	public static void v(String tag, String msg) {
 		if(VERBOSE)call("v", tag, msg);
+	}
+	public static void i(String tag, String msg) {
+		call("i", tag, msg);
 	}
 }
