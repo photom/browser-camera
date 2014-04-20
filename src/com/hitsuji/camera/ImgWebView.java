@@ -71,42 +71,25 @@ public class ImgWebView extends WebView {
 	}
 
 	public Bitmap drawBitmap(int cameraWidth, int cameraHeight, 
-			float scale, float cameraScale) {
+			float cameraScale) {
 		if (cameraWidth<=0 || cameraHeight<=0) return null;
 		if (getWidth()<=0 || getHeight()<=0) return null;
-		//if (scale < 1) scale = 1;
-		/*
-		int cw = (int)(getContentWidth() * mScale * cameraScale);
-		int ch = (int)(getContentHeight() * mScale * cameraScale);
-		cameraWidth *= cameraScale;
-		cameraHeight *= cameraScale;
-		*/
+
 		int cw = (int)(getContentWidth() * mScale);
 		int ch = (int)(getContentHeight() * mScale);
 		int imgWidth = getWidth() > cw ? getWidth() : cw;
 		int imgHeight = getHeight() > ch ? getHeight() : ch;
-		Log.d(TAG, "bmp w:"+cameraWidth +" h:"+ cameraHeight + " scale:"+scale);
+		Log.d(TAG, "bmp w:"+cameraWidth +" h:"+ cameraHeight + " webviewscale:"+mScale);
 		Log.d(TAG, "webview w:"+ getWidth() +" h:"+ getHeight());
 		Log.d(TAG, "img w:"+ imgWidth +" h:"+ imgHeight);
 		Log.d(TAG, "cw:"+ cw +" ch:"+ ch);
 		Bitmap bitmap;
-		//this.setInitialScale(200);
-		//Bitmap bitmap = Bitmap.createBitmap((int)(width), (int)(height*scale), Config.ARGB_8888);
-		//Bitmap bitmap = Bitmap.createBitmap(width, height, Config.ARGB_8888);
 		bitmap = Bitmap.createBitmap(imgWidth, imgHeight, Config.ARGB_8888);
-		//bitmap = Bitmap.createBitmap(getWidth(), getHeight(), Config.ARGB_8888);
+
 		Canvas canvas = new Canvas(bitmap);
-		/*
-		Paint paint = new Paint();
-		paint.setColor(Color.BLACK);
-		android.graphics.Rect r = new android.graphics.Rect(0,0, imgWidth, imgHeight);
-		canvas.drawRect(r, paint);
-		*/
-		//picture.draw(canvas);
+
 		this.draw(canvas);
-		//Log.d(TAG, "bmpresult w:"+bitmap.getWidth() + " h:"+bitmap.getHeight() + " mx:"+mX + " mY:"+mY);
-		//if (scale<=1) return bitmap;
-		//return bitmap;
+
 		Log.d(TAG, "pre x:"+ mX +" y:"+ mY);
 		if (mX+cameraWidth>imgWidth) 
 			mX = imgWidth-cameraWidth;
@@ -129,8 +112,7 @@ public class ImgWebView extends WebView {
 
 	}
 	public Bitmap drawBitmap2(int cameraWidth, int cameraHeight, 
-			int viewWidth, int viewHeight,
-			float scale, float cameraScale) {
+			int viewWidth, int viewHeight, float cameraScale) {
 		if (cameraWidth<=0 || cameraHeight<=0) return null;
 		if (viewWidth<=0 || viewHeight<=0) return null;
 		
@@ -138,7 +120,7 @@ public class ImgWebView extends WebView {
 		int ch = (int)(getContentHeight() * mScale);
 		int imgWidth = viewWidth > cw ? viewWidth : cw;
 		int imgHeight = viewHeight > ch ? viewHeight : ch;
-		Log.d(TAG, "bmp w:"+cameraWidth +" h:"+ cameraHeight + " scale:"+scale);
+		Log.d(TAG, "bmp w:"+cameraWidth +" h:"+ cameraHeight + " webviewscale:"+mScale);
 		Log.d(TAG, "webview w:"+ viewWidth +" h:"+ viewHeight);
 		Log.d(TAG, "img w:"+ imgWidth +" h:"+ imgHeight);
 		Log.d(TAG, "cw:"+ cw +" ch:"+ ch);
@@ -234,7 +216,7 @@ public class ImgWebView extends WebView {
 		Log.d(TAG, "createExtractMatrics widthidth:"+width + " height:"+height + " mscale:"+mScale + " camerascale:"+cameraScale);
 		initFields();
 		
-		Bitmap bmp = drawBitmap(width, height, mScale, cameraScale);
+		Bitmap bmp = drawBitmap(width, height, cameraScale);
 		if (bmp==null) return null;
 		
 
@@ -295,7 +277,7 @@ public class ImgWebView extends WebView {
 	public Pair<Mat, Mat> createMargeMatrics(int width, int height){
 		Log.d(TAG, "createMargeMatrics width:"+width + " height:"+height + " mscale:"+mScale);
 		initFields();
-		Bitmap bmp = drawBitmap(width, height, mScale, 1);
+		Bitmap bmp = drawBitmap(width, height, 1.0f);
 		if (bmp==null) return null;
 		Utils.bitmapToMat(bmp, mIntermediateMat);
 		Imgproc.cvtColor(mIntermediateMat, mIntermediateMat3, Imgproc.COLOR_RGB2HSV_FULL);
@@ -358,7 +340,7 @@ public class ImgWebView extends WebView {
 
 	public Mat createMatrics(int width, int height){
 		Log.d(TAG, "createMatrics width:"+width + " height:"+height + " mscale:"+mScale);
-		Bitmap bmp = drawBitmap(width, height, mScale, 1);
+		Bitmap bmp = drawBitmap(width, height, 1.0f);
 		if (bmp==null) return null;
 		Mat rgba = new Mat();
 		Utils.bitmapToMat(bmp, rgba);

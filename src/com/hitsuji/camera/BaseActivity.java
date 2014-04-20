@@ -1,8 +1,10 @@
 package com.hitsuji.camera;
 
 import java.io.File;
+import java.io.FileOutputStream;
 
 import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.Utils;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewFrame;
@@ -10,15 +12,22 @@ import org.opencv.core.Mat;
 import org.opencv.core.Scalar;
 
 import com.util.Log;
+import com.util.Util;
 
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
+import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
+import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.preference.PreferenceManager;
 import android.view.KeyEvent;
 import android.view.MenuItem;
+import android.widget.Toast;
 
 public abstract class BaseActivity extends Activity implements CvCameraViewListener2{
 	private static final String TAG = "BaseActivity";
@@ -75,6 +84,10 @@ public abstract class BaseActivity extends Activity implements CvCameraViewListe
 	protected MenuItem mItemMerge;
 	protected MenuItem mItemSaveImage;
 	protected MenuItem mItemSettings;
+
+	protected Handler mProcHandler;
+	protected HandlerThread mProcThread = new HandlerThread("proc");
+	protected volatile Mat mSaveImageHolder;
 	
 	protected BaseLoaderCallback  mLoaderCallback = new BaseLoaderCallback(this) {
 		@Override
@@ -92,6 +105,15 @@ public abstract class BaseActivity extends Activity implements CvCameraViewListe
 			}
 		}
 	};
+	
+	@Override
+	public void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		mProcThread.start();
+		mProcHandler = new Handler(mProcThread.getLooper());
+
+	}
+	
 	@Override
 	public void onStart() {
 		super.onStart();
@@ -147,7 +169,8 @@ public abstract class BaseActivity extends Activity implements CvCameraViewListe
 		dilateErudeTimes = prefs.getInt("DilateErudeTimes", 3);
 		url = prefs.getString("MixedPageUrl", "http://www.google.com/imghp");
 		String app = context.getResources().getString(R.string.app_name).replaceAll(" ", "_");
-		String dir = Environment.DIRECTORY_PICTURES + app+"/"; 
+		String dir = Environment.getExternalStorageDirectory().getAbsolutePath() + File.separator +
+				Environment.DIRECTORY_PICTURES +File.separator+ app+ File.separator; 
 		File dirF = new File(dir);
 		if (!dirF.exists())
 			dirF.mkdirs();
@@ -249,4 +272,50 @@ public abstract class BaseActivity extends Activity implements CvCameraViewListe
 	    }
 	    return super.onKeyDown(keyCode, event);
 	}
+	
+
+	public void saveImage(final Context context, final Handler viewHandler) {
+		mProcHandler.post(new Runnable(){
+			boolean mRet;
+			public void run(){
+				File dirF = new File(savePath);
+				if (!dirF.exists())
+					dirF.mkdirs();
+				
+				if (viewMode==VIEW_MODE_WEBVIEW) {
+					Bitmap bitmap = mWebview.drawBitmap(
+							cameraWidth, cameraHeight,
+							mCameraView.getScale());
+					try {
+						FileOutputStream out = new FileOutputStream(savePath+Util.currentTime() + ".png");
+						mRet = bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+					} catch (Exception e) {
+						e.printStackTrace();
+						mRet = false;
+					}
+				} else {
+					Bitmap bitmap = Bitmap.createBitmap(mSaveImageHolder.cols(), mSaveImageHolder.rows(), Config.ARGB_8888); 
+					Utils.matToBitmap(mSaveImageHolder, bitmap);
+					try {
+						FileOutputStream out = new FileOutputStream(savePath+Util.currentTime() + ".png");
+					  mRet = bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+					  bitmap.recycle();
+					} catch (Exception e) {
+					   e.printStackTrace();
+					   mRet = false;
+					}
+				}
+				
+				viewHandler.post(new Runnable(){
+					public void run(){
+						if (mRet) 
+							Toast.makeText(context, "saved image: " + savePath, Toast.LENGTH_SHORT).show();
+						else
+							Toast.makeText(context, "fail to save image: " + savePath, Toast.LENGTH_SHORT).show();
+					}
+				});
+			}
+		});
+	}
+
 }

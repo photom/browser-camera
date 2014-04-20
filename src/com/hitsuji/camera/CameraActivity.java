@@ -1,5 +1,6 @@
 package com.hitsuji.camera;
 
+import java.io.File;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,6 +38,7 @@ import android.os.HandlerThread;
 import android.preference.PreferenceManager;
 import com.util.Log;
 import com.util.Pair;
+import com.util.Util;
 
 import android.view.GestureDetector;
 import android.view.Gravity;
@@ -267,7 +269,7 @@ public class CameraActivity extends BaseActivity {
 			bitmap = mWebview.drawBitmap2(
 				cameraWidth, cameraHeight,
 				mCameraView.getWidth(), mCameraView.getHeight(),
-				mScaleFactor, 1);
+				mCameraView.getScale());
 			Utils.bitmapToMat(bitmap, mWebviewImage);
 			
 			Log.d(TAG,"refreshWebviewBmp webviewimage:"+ mWebviewImage);
@@ -325,6 +327,7 @@ public class CameraActivity extends BaseActivity {
 		Scalar sa = Scalar.all(-1.0);
 		mShapeningKernel3x3.setTo(sa);
 		mShapeningKernel3x3.put(1, 1, 1+8);
+		mSaveImageHolder = new Mat();
 	}
 
 	public void onCameraViewStopped() {
@@ -341,6 +344,8 @@ public class CameraActivity extends BaseActivity {
 			mDefaultKernel3x3.release();
 		if (mShapeningKernel3x3 != null)
 			mShapeningKernel3x3.release();
+		if (mSaveImageHolder != null)
+			mSaveImageHolder.release();
 		
 	}
 	@Override
@@ -366,6 +371,7 @@ public class CameraActivity extends BaseActivity {
 		}
 		Log.d(TAG, "onCameraFrame:"+viewMode+ " end:" + mRgba);
 		Log.d(TAG, "width:"+mRgba.cols()+ " height:"+mRgba.rows());
+		mRgba.copyTo(mSaveImageHolder);
 		return mRgba;
 	}
 
@@ -386,7 +392,7 @@ public class CameraActivity extends BaseActivity {
 			viewMode = VIEW_MODE_MERGE;
 			switchView(viewMode, old);
 		} else if (item == mItemSaveImage) {
-			viewMode = VIEW_MODE_SAVE;
+			saveImage(this, this.mHandler);
 		} else if (item == mItemSettings) {
 			setViewMode( VIEW_MODE_CAMERA );
 			intent = new Intent(this, com.hitsuji.android.Settings.class);
@@ -511,35 +517,6 @@ public class CameraActivity extends BaseActivity {
 		}
 
 		contours.clear();
-	}
-
-	public boolean saveImage(String path) {
-		// TODO Auto-generated method stub
-		Bitmap bitmap = null;
-		synchronized (mSaveImageLock) {
-			if (mHolder != null && 
-					mHolder.cols()>0 && mHolder.rows()>0) {
-				bitmap = Bitmap.createBitmap(
-						mHolder.cols(), 
-						mHolder.rows(), 
-						Bitmap.Config.ARGB_8888);
-				Utils.matToBitmap(mHolder, bitmap);
-			} else {
-				return false;
-			}
-		}
-		if (bitmap !=null) {
-			try {
-				FileOutputStream out = new FileOutputStream(path);
-				return bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
-			} catch (Exception e) {
-				e.printStackTrace();
-				return false;
-			}
-		} else {
-			return false;
-		}
-
 	}
 
 	public Mat captureCamera(){

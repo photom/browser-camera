@@ -64,8 +64,6 @@ public class BrowserActivity extends BaseActivity   {
 	private static final String TAG = "BrowserActivity";
 
 	private Handler mHandler;
-	private Handler mProcHandler;
-	private HandlerThread mProcThread = new HandlerThread("proc");
 
 	public static AtomicBoolean mViewLock = new AtomicBoolean(false);
 
@@ -74,7 +72,6 @@ public class BrowserActivity extends BaseActivity   {
 	public AtomicBoolean mDirtyPage = new AtomicBoolean(true);
 	private volatile Mat mWebviewImage;
 	private volatile Mat mWebviewMask;
-
 
 	protected int getCameraViewId(){
 		return R.id.browser_camera_view;
@@ -93,8 +90,6 @@ public class BrowserActivity extends BaseActivity   {
 		viewMode = VIEW_MODE_WEBVIEW;
 		
 		mHandler = new Handler();
-		mProcThread.start();
-		mProcHandler = new Handler(mProcThread.getLooper());
 
 		setProgressBarIndeterminateVisibility(true);
 		setProgressBarVisibility(true);
@@ -175,7 +170,6 @@ public class BrowserActivity extends BaseActivity   {
 			intent.setFlags(intent.getFlags() | 
 					Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
 			startActivity(intent);
-			this.finish();
 		} else if (imageProcessTarget==TARGET_CAMERA) {
 			//launch CameraActivity
 			Intent intent = new Intent(BrowserActivity.this,
@@ -282,33 +276,34 @@ public class BrowserActivity extends BaseActivity   {
 				mProcHandler.post(new Runnable(){
 					boolean mRet;
 					public void run(){
-						if (imageProcessTarget ==
-								BrowserActivity.TARGET_CAMERA) {
-							/*
-							Bitmap bitmap = BrowserActivity.drawBitmap(
-									mWebview.getWidth(), 
-									mWebview.getHeight(), 1.0f);
+						File dirF = new File(savePath);
+						if (!dirF.exists())
+							dirF.mkdirs();
+						
+						if (viewMode==VIEW_MODE_WEBVIEW) {
+							Bitmap bitmap = mWebview.drawBitmap(
+									cameraWidth, cameraHeight,
+									mCameraView.getScale());
 							try {
-								FileOutputStream out = new FileOutputStream(savePath);
+								FileOutputStream out = new FileOutputStream(savePath+Util.currentTime() + ".png");
+								mRet = bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+							} catch (Exception e) {
+								e.printStackTrace();
+								mRet = false;
+							}
+						} else {
+							Bitmap bitmap = Bitmap.createBitmap(mSaveImageHolder.cols(), mSaveImageHolder.rows(), Config.ARGB_8888); 
+							Utils.matToBitmap(mSaveImageHolder, bitmap);
+							try {
+								FileOutputStream out = new FileOutputStream(savePath+Util.currentTime() + ".png");
 							  mRet = bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+							  bitmap.recycle();
 							} catch (Exception e) {
 							   e.printStackTrace();
 							   mRet = false;
-							}*/
-						} else {
-							if (viewMode==VIEW_MODE_WEBVIEW) {
-								Bitmap bitmap = mWebview.drawBitmap();
-								try {
-									FileOutputStream out = new FileOutputStream(savePath+Util.currentTime());
-									mRet = bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
-								} catch (Exception e) {
-									e.printStackTrace();
-									mRet = false;
-								}
-							} else {
-								//mRet = mImgview.saveImage(savePath);
 							}
 						}
+						
 						mHandler.post(new Runnable(){
 							public void run(){
 								if (mRet) 
@@ -462,11 +457,12 @@ public class BrowserActivity extends BaseActivity   {
 		Log.d(TAG, "onCameraViewStarted width:"+width + " height:"+height);
 		if (width<=0 || height<=0)
 			return;
-		
+
 		if (viewMode != VIEW_MODE_CAMERA){
 			setDefaultWebviewSize(cameraViewWidth, cameraViewHeight);
 			initView(getViewMode());
 		}
+		mSaveImageHolder = new Mat();
 	}
 
 	@Override
@@ -478,6 +474,8 @@ public class BrowserActivity extends BaseActivity   {
 			mWebviewMask.release();
 		if (mRgba!=null)
 			mRgba.release();
+		if (mSaveImageHolder != null)
+			mSaveImageHolder.release();
 	}
 
 	@Override
@@ -518,15 +516,8 @@ Log.d(TAG, "target:"+getTarget() + " viewmode:"+getViewMode() +
 				Core.add(mRgba, tmp, mRgba);
 				tmp.release();
 			}
-			/*
-			Log.d(TAG, "rgba w:"+ mRgba.width() + " h:"+mRgba.height() + " type:"+mRgba.type() +
-					" cann:"+mRgba.channels() + " mat:"+mRgba.toString() + 
-					" tmp w:"+tmp.width() + " h:"+tmp.height() + " type:"+tmp.type() +
-					" cann:"+tmp.channels() + " mat:"+tmp.toString());
-			 */
-
 		}
-
+		mRgba.copyTo(mSaveImageHolder);
 		return mRgba;
 	}
 
