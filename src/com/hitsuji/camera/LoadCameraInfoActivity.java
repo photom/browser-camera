@@ -122,6 +122,10 @@ public class LoadCameraInfoActivity extends BaseActivity implements CvCameraView
 		}
 		return img;
 	}
+	@Override
+	public void moveAndRedrawWebView(float x, float y) {
+		//do nothing
+	}
 	
 	
 }

@@ -17,10 +17,11 @@ import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.os.Environment;
 import android.preference.PreferenceManager;
+import android.view.KeyEvent;
 import android.view.MenuItem;
 
 public abstract class BaseActivity extends Activity implements CvCameraViewListener2{
-	private static final String TAG = "BrowserActivity";
+	private static final String TAG = "BaseActivity";
 	
 	private static final int CONNY_PARAM1 = 80;
 	private static final int CONNY_PARAM2 = 100;
@@ -60,7 +61,10 @@ public abstract class BaseActivity extends Activity implements CvCameraViewListe
 	protected int cameraViewHeight;
 	
 	protected Scalar lo, hi;
-	protected Mat mRgba;
+	protected volatile Mat mRgba;
+	protected volatile Mat mIntermediateMat;
+	protected volatile Mat mIntermediateMat2;
+	protected volatile Mat mIntermediateMat3;
 	
 	protected CameraView mCameraView;
 	protected ImgWebView mWebview;
@@ -79,8 +83,6 @@ public abstract class BaseActivity extends Activity implements CvCameraViewListe
 			case LoaderCallbackInterface.SUCCESS:
 			{
 				Log.i(TAG, "OpenCV loaded successfully");
-				if(mCameraView==null)
-					initCameraView();
 				mCameraView.enableView();
 			} break;
 			default:
@@ -90,14 +92,32 @@ public abstract class BaseActivity extends Activity implements CvCameraViewListe
 			}
 		}
 	};
-	
-	protected abstract int getCameraViewId();
-	
-	protected void initCameraView(){
-		mCameraView = (CameraView) findViewById(getCameraViewId());
-		mCameraView.setCvCameraViewListener(this);
-		mCameraView.enableFpsMeter();
+	@Override
+	public void onStart() {
+		super.onStart();
+		Log.d(TAG, "onStart");
 	}
+	@Override
+	public void onPause(){
+		Log.d(TAG, "onpause");
+		if (mCameraView != null)
+			mCameraView.disableView();
+		
+		super.onPause();
+	}
+	@Override
+	public void onStop() {
+		Log.d(TAG, "onstop");
+		super.onStop();
+	}
+	@Override
+	public void onDestroy() {
+		Log.d(TAG, "ondestroy");
+		super.onDestroy();
+	}
+
+	protected abstract int getCameraViewId();
+	public abstract void moveAndRedrawWebView(float x, float y);
 	
 	public void setPrefs(Context context){
 		SharedPreferences prefs;
@@ -119,6 +139,7 @@ public abstract class BaseActivity extends Activity implements CvCameraViewListe
 			editor.putString("ImageProcessTarget", "Browser");
 			editor.commit();
 		}
+		Log.d(TAG, "target:"+prefs.getString("ImageProcessTarget", "Browser"));
 		imageProcessTarget = prefs.getString("ImageProcessTarget", "Browser").equals("Browser") ? 
 				TARGET_BROWSER : TARGET_CAMERA;
 		cannyParam1 = CONNY_PARAM1;
@@ -132,9 +153,15 @@ public abstract class BaseActivity extends Activity implements CvCameraViewListe
 			dirF.mkdirs();
 		//savePath = prefs.getString("SaveImagePath", dir);
 		savePath = dir;
-		Log.d(TAG, "onresume filtersize:" + smoothingFilterSize +
+		Log.d(TAG, "osetPrefs filtersize:" + smoothingFilterSize +
 				"dilateerudetime:"+ dilateErudeTimes+
 				" cannyparam1:" + cannyParam1 + " cannyparam2:" + cannyParam2);		
+	}	
+	public int getViewMode(){
+		return viewMode;
+	}
+	public void setViewMode(int mode){
+		viewMode = mode;
 	}
 	
 	public int getSmoothingFilterSize(){
@@ -190,6 +217,7 @@ public abstract class BaseActivity extends Activity implements CvCameraViewListe
 	}
 	
 	protected void setRgbaMatrics(CvCameraViewFrame inputFrame){
+		Log.d(TAG, "setRgbaMatrics:"+inputFrame.rgba());
 		mRgba = inputFrame.rgba();
 	}
 	
@@ -202,10 +230,23 @@ public abstract class BaseActivity extends Activity implements CvCameraViewListe
 		cameraHeight = height;
 		cameraViewWidth = prefs.getInt("CAMERA_VIEW_WIDTH", -1);
 		cameraViewHeight = prefs.getInt("CAMERA_VIEW_HEIGHT", -1);
-		Log.d(TAG, "BaseActivity.hasCameraInfo"+
+		Log.d(TAG, "hasCameraInfo"+
 				" width:"+width + " height:"+height + 
 				" cameraviewwidth:"+cameraViewWidth +
 				" cameraviewheight:"+cameraViewHeight);
 		return width>0 && height>0 && cameraViewWidth>0 && cameraViewHeight>0;
+	}
+	
+	@Override
+	public boolean onKeyDown(int keyCode, KeyEvent event) {
+		Log.d(TAG, "onkeydown keycode:"+keyCode + " KEYCODE_BACK:"+KeyEvent.KEYCODE_BACK);
+	    switch(keyCode){
+	    case KeyEvent.KEYCODE_BACK:
+			Log.d(TAG, "finishActivity");
+	    	this.finishActivity(RET_CAMERA_ACTIVITY);
+	    	this.finish();
+	        return false;
+	    }
+	    return super.onKeyDown(keyCode, event);
 	}
 }

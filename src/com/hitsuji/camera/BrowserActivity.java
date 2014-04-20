@@ -105,7 +105,8 @@ public class BrowserActivity extends BaseActivity   {
 		mCameraView.setActivity(this);
 		mCameraView.setCvCameraViewListener(this);
 		mCameraView.enableFpsMeter();
-
+		mCameraView.setCameraIndex(Camera.CameraInfo.CAMERA_FACING_BACK);
+		
 		mWebview = new ImgWebView(this);
 		mWebview.getSettings().setJavaScriptEnabled(true);
 		mWebview.addJavascriptInterface(new ImgWebView.JavaScriptInterface(mWebview), "HTMLOUT");
@@ -159,18 +160,6 @@ public class BrowserActivity extends BaseActivity   {
 		mWebview.setScrollBarStyle(WebView.SCROLLBARS_INSIDE_INSET);
 		mWebview.getSettings().setBuiltInZoomControls(true);
 
-		FrameLayout.LayoutParams p = null;
-		p = new FrameLayout.LayoutParams(
-				LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT);
-		p.gravity = Gravity.CENTER;
-		FrameLayout fl = (FrameLayout)this.findViewById(R.id.browserlayout);
-		if (imageProcessTarget==TARGET_CAMERA) {
-			fl.addView(mWebview, p);
-		} else {
-			//fl.addView(mImgview, p);
-		}
-		//
-
 	}
 
 	@Override
@@ -179,13 +168,6 @@ public class BrowserActivity extends BaseActivity   {
 		super.onResume();
 
 		setPrefs(this);
-		if (mDirtyPage.get()) 
-			mHandler.post(new Runnable(){
-				public void run(){
-					mWebview.loadUrl(url);
-				}
-			});
-
 
 		if (!hasCameraInfo()) {
 			Intent intent = new Intent(BrowserActivity.this,
@@ -205,9 +187,15 @@ public class BrowserActivity extends BaseActivity   {
 		} else {
 			this.setDefaultWebviewSize(cameraViewWidth, cameraViewHeight);
 		}
+		if (mDirtyPage.get()) 
+			mHandler.post(new Runnable(){
+				public void run(){
+					mWebview.loadUrl(url);
+				}
+			});
+
 		OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_2_4_8, this, mLoaderCallback);
-
-
+		
 		if (imageProcessTarget == TARGET_CAMERA) {
 			switchView(viewMode, -1);
 		} else {
@@ -224,23 +212,6 @@ public class BrowserActivity extends BaseActivity   {
 		}
 
 		Log.d(TAG, "onresume end");
-	}
-
-	@Override
-	public void onPause(){
-		Log.d(TAG, "onpause");
-		if (mCameraView != null)
-			mCameraView.disableView();
-		
-		super.onPause();
-	}
-	@Override
-	public void onStop() {
-		super.onStop();
-	}
-	@Override
-	public void onDestroy() {
-		super.onDestroy();
 	}
 
 
@@ -275,7 +246,7 @@ public class BrowserActivity extends BaseActivity   {
 					intent = new Intent(this, CameraActivity.class);
 					intent.setFlags(intent.getFlags() | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
 					startActivity(intent);
-					//mImgview.setCameraFlag(true);
+					this.finish();
 				}
 			} else if (item == mItemWebview) {
 				setViewMode( VIEW_MODE_WEBVIEW );
@@ -360,7 +331,6 @@ public class BrowserActivity extends BaseActivity   {
 				intent = new Intent(this, com.hitsuji.android.Settings.class);
 				intent.setFlags(intent.getFlags() | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
 				this.startActivity(intent);
-				//this.finish();
 			}
 		}
 		return true;
@@ -435,13 +405,6 @@ public class BrowserActivity extends BaseActivity   {
 		fl.addView(view, fllp);
 	}
 
-
-	public int getViewMode(){
-		return viewMode;
-	}
-	public void setViewMode(int mode){
-		viewMode = mode;
-	}
 	/*
 	public static void makePageDirty(){
 		if (self!=null)self.mDirtyPage.set(true);

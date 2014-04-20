@@ -73,6 +73,7 @@ public class ImgWebView extends WebView {
 	public Bitmap drawBitmap(int cameraWidth, int cameraHeight, 
 			float scale, float cameraScale) {
 		if (cameraWidth<=0 || cameraHeight<=0) return null;
+		if (getWidth()<=0 || getHeight()<=0) return null;
 		//if (scale < 1) scale = 1;
 		/*
 		int cw = (int)(getContentWidth() * mScale * cameraScale);
@@ -127,7 +128,48 @@ public class ImgWebView extends WebView {
 		return bmp;
 
 	}
-	
+	public Bitmap drawBitmap2(int cameraWidth, int cameraHeight, 
+			int viewWidth, int viewHeight,
+			float scale, float cameraScale) {
+		if (cameraWidth<=0 || cameraHeight<=0) return null;
+		if (viewWidth<=0 || viewHeight<=0) return null;
+		
+		int cw = (int)(getContentWidth() * mScale);
+		int ch = (int)(getContentHeight() * mScale);
+		int imgWidth = viewWidth > cw ? viewWidth : cw;
+		int imgHeight = viewHeight > ch ? viewHeight : ch;
+		Log.d(TAG, "bmp w:"+cameraWidth +" h:"+ cameraHeight + " scale:"+scale);
+		Log.d(TAG, "webview w:"+ viewWidth +" h:"+ viewHeight);
+		Log.d(TAG, "img w:"+ imgWidth +" h:"+ imgHeight);
+		Log.d(TAG, "cw:"+ cw +" ch:"+ ch);
+		Bitmap bitmap;
+		bitmap = Bitmap.createBitmap(imgWidth, imgHeight, Config.ARGB_8888);
+		Canvas canvas = new Canvas(bitmap);
+		this.draw(canvas);
+
+		Log.d(TAG, "pre x:"+ mX +" y:"+ mY);
+		if (mX+cameraWidth>imgWidth) 
+			mX = imgWidth-cameraWidth;
+		if (mY+cameraHeight>imgHeight) 
+			mY = imgHeight-cameraHeight;
+		
+		Matrix matrix = new Matrix();
+		float fx = (float)cameraWidth/(float)viewWidth;
+		float fy = (float)cameraHeight/(float)viewHeight;
+		matrix.setScale(fx, fy);
+		Log.d(TAG, "post x:"+ mX +" y:"+ mY + " matrix:"+matrix + 
+				" fx:"+fx + " fy:"+fy + 
+				" bitmapw:"+bitmap.getWidth() + " bitmaph:"+bitmap.getHeight() +
+				" viewwidth:"+viewWidth + " viewheight:"+viewHeight);
+		Bitmap bmp = Bitmap.createBitmap(bitmap, mX, mY, 
+				viewWidth, viewHeight, matrix, true);
+				
+		//Bitmap bmp = Bitmap.createBitmap(bitmap, mX, mY, 
+		//		cameraWidth, cameraHeight);
+		bitmap.recycle();
+		return bmp;
+
+	}
 	public void setScale(float scale){
 		this.mScale = scale;
 	}
@@ -160,29 +202,26 @@ public class ImgWebView extends WebView {
 		int cw = (int)(mScale * getContentWidth());
 		int ch = (int)(mScale * getContentHeight());
 		Log.d(TAG, "move mx:"+mX + " mY:"+mY + 
-				" defw:"+mDefaultWidth +  " defy:"+mDefaultHeight + 
+				" defw:"+mDefaultWidth +  " defh:"+mDefaultHeight + 
 				" webw:"+getWidth() + " webh:"+getHeight()+
 				" contw:"+getContentWidth() + " conth:"+getContentHeight()+
 				" x:"+x + " y:"+y + " scale:"+mScale +
 				" cw:"+cw + " cy:"+ch);
 		if (mX+x<0) x = 0;
 		if (mY+y<0) y = 0;
+		int viewWidth = getWidth();
+		int viewHeight = getHeight();
+		
+		int thw = viewWidth > cw ? 
+				viewWidth : cw;
+		int thh = viewHeight > ch ? 
+				viewHeight : ch;
 
-		int thw = mDefaultWidth > cw ? 
-				mDefaultWidth : cw;
-		int thh = mDefaultHeight > ch ? 
-				mDefaultHeight : ch;
-/*
-		int thw = mDefaultWidth > getWidth() ? 
-				mDefaultWidth : getWidth();
-		int thh = mDefaultHeight > getHeight() ?
-				mDefaultHeight : getHeight();	
-				*/	
-		if (mX+x+mDefaultWidth>thw) x = 0;
-		if (mY+y+mDefaultHeight>thh) y = 0;
+		if (mX+x+viewWidth>thw) x = 0;
+		if (mY+y+viewHeight>thh) y = 0;
 		mX += x;
 		mY += y;
-		Log.d(TAG, "mx:"+mX +" my:"+mY + " x:"+x + " y:"+y);
+		Log.d(TAG, "mx:"+mX +" my:"+mY + " x:"+x + " y:"+y + " thw:"+thw + " thh:"+thh);
 	}
 	public float getX(){
 		return mX;

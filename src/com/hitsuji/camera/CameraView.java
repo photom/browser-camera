@@ -16,7 +16,7 @@ public class CameraView extends org.opencv.android.JavaCameraView{
 	private static final String TAG = "CameraView";
 	private ScaleGestureDetector mScaleGesDetector = null;
 	private GestureDetector  mGesDetector = null;
-	private BrowserActivity mParent = null;
+	private BaseActivity mParent = null;
 	
 	public CameraView(Context context, AttributeSet attrs) {
 		super(context, attrs);
@@ -25,14 +25,14 @@ public class CameraView extends org.opencv.android.JavaCameraView{
 		mGesDetector.setOnDoubleTapListener(mODTListener);
 	}
 	
-	public void setActivity(BrowserActivity context){
+	public void setActivity(BaseActivity context){
 		mParent = context;
 	}
 	
 	@Override
 	protected boolean initializeCamera(int width, int height) {
 		boolean ret = super.initializeCamera(width, height);
-		/*
+		
 		Camera.Parameters params = mCamera.getParameters();
         Log.d(TAG, "getSupportedPreviewSizes()");
         JavaCameraSizeAccessor accessor = new JavaCameraSizeAccessor();
@@ -42,7 +42,7 @@ public class CameraView extends org.opencv.android.JavaCameraView{
         	int h = accessor.getHeight(size);
         	Log.d(TAG, "size width:"+width + " height:"+height + " w:"+w + " h:"+h);
         }
-		 */
+		
 		return ret;
 	}
 

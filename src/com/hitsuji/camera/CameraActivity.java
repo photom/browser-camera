@@ -30,6 +30,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Picture;
+import android.hardware.Camera;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -59,28 +60,26 @@ import android.widget.ProgressBar;
 import android.widget.Toast;
 import android.widget.LinearLayout.LayoutParams;
 
-public class CameraActivity extends BaseActivity implements CvCameraViewListener2 {
+public class CameraActivity extends BaseActivity {
 	private static final String TAG = "CameraActivity";
 
-	private volatile Mat mRgba;
-	private volatile Mat mIntermediateMat;
-	private volatile Mat mIntermediateMat2;
-	private volatile Mat mIntermediateMat3;
-	
-
-	private Scalar bl, wh;
+	private Scalar bl= new Scalar(0, 0, 255, 255);
+	private Scalar wh= new Scalar(255, 255, 255, 255);
+	private Scalar bk= new Scalar(0, 0, 0, 0);
 	private Mat mDefaultKernel3x3;
 	private Mat mShapeningKernel3x3;
-	private Point mDefP;
+	private Point mDefP = new Point(-1, -1);
 	
-	
+	public AtomicBoolean mDirtyPage = new AtomicBoolean(true);
 	private float mScaleFactor = 1.0f;
 	private ScaleGestureDetector mScaleGesDetector = null;
 	private GestureDetector  mGesDetector = null;
 
-	private Object mSaveImageLock;
+	private Object mSaveImageLock = new Object();
 	private Mat mHolder;
+
 	private volatile Mat mWebviewImage;
+	//private volatile Bitmap mWebviewBmp;
 	
 	private Handler mHandler;
 	private ProgressBar mProgressBar;
@@ -91,24 +90,26 @@ public class CameraActivity extends BaseActivity implements CvCameraViewListener
 	/** Called when the activity is first created. */
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
-		Log.i(TAG, "called onCreate");
+		Log.d(TAG, "called onCreate");
 		super.onCreate(savedInstanceState);
-		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
 		getWindow().requestFeature(Window.FEATURE_PROGRESS);
 		getWindow().setFeatureInt(Window.FEATURE_PROGRESS, Window.PROGRESS_VISIBILITY_ON);
 		setContentView(R.layout.camera);
 
+		mCameraView = (CameraView) findViewById(R.id.camera_camera_view);
+		mCameraView.setActivity(this);
+		mCameraView.setCvCameraViewListener(this);
+		mCameraView.enableFpsMeter();
+		mCameraView.setCameraIndex(Camera.CameraInfo.CAMERA_FACING_BACK);
+		
 		viewMode = VIEW_MODE_CAMERA;
 		mHandler = new Handler();
 		
 		mScaleGesDetector = new ScaleGestureDetector(this, mSGListener);
 		mGesDetector = new  GestureDetector(this, mGListener);
 		mGesDetector.setOnDoubleTapListener(mODTListener);
-		
-		mCameraView = (CameraView) findViewById(R.id.camera_camera_view);
-		mCameraView.setCvCameraViewListener(this);
-		mCameraView.enableFpsMeter();
+
 		
 		setProgressBarIndeterminateVisibility(true);
 		setProgressBarVisibility(true);
@@ -137,8 +138,9 @@ public class CameraActivity extends BaseActivity implements CvCameraViewListener
 			public void onPageFinished(WebView view , String url){
 				Log.d(TAG, "onpagefinished:"+url);
 				mProgressBar.setVisibility(View.GONE);
-				FrameLayout fl = (FrameLayout)CameraActivity.this.findViewById(R.id.browserlayout);
+				FrameLayout fl = (FrameLayout)CameraActivity.this.findViewById(R.id.cameralayout);
 				fl.removeView(mProgressBar);
+				mDirtyPage.set(false);
 				mWebview.loadUrl("javascript:window.HTMLOUT.getContentWidth(document.getElementsByTagName('html')[0].scrollWidth);");
 				super.onPageFinished(view, url);
 			}
@@ -166,7 +168,6 @@ public class CameraActivity extends BaseActivity implements CvCameraViewListener
 		}); 
 		mWebview.setScrollBarStyle(WebView.SCROLLBARS_INSIDE_INSET);
 		mWebview.getSettings().setBuiltInZoomControls(true);
-
 		
 	}
 
@@ -182,15 +183,12 @@ public class CameraActivity extends BaseActivity implements CvCameraViewListener
 		return true;
 	}
 
-	@Override
-	public void onStart() {
-		super.onStart();
-	}
 
 	@Override
 	public void onResume() {
 		super.onResume();
 		setPrefs(this);
+		Log.d(TAG, "onresume target:"+imageProcessTarget + " camerawidth:"+mCameraView.getWidth() + " cameraheight:"+mCameraView.getHeight());
 		
 		if (!hasCameraInfo()) {
 			Intent intent = new Intent(CameraActivity.this,
@@ -205,10 +203,7 @@ public class CameraActivity extends BaseActivity implements CvCameraViewListener
 			startActivity(intent);
 			return;
 		}
-
-
-		OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_2_4_8, this, mLoaderCallback);
-
+		
 
 		if (imageProcessTarget == TARGET_BROWSER) {
 			switchView(viewMode, -1);
@@ -224,44 +219,24 @@ public class CameraActivity extends BaseActivity implements CvCameraViewListener
 				switchView(VIEW_MODE_CAMERA, -1);
 			}
 		}
+		OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_2_4_8, this, mLoaderCallback);
+
 	}
 
-	@Override
-	public void onPause() {
-		Log.d(TAG, "onpause");
-		if (mCameraView != null)
-			mCameraView.disableView();
-	
-		super.onPause();
-	}
-	
-	@Override
-	public void onStop() {
-		super.onStop();
-	}
-	@Override
-	public void onDestroy() {
-		super.onDestroy();
-	}
-	
-	@Override
-	public boolean onKeyDown(int keyCode, KeyEvent event) {
-		Log.d(TAG, "onkeydown keycode:"+keyCode + " KEYCODE_BACK:"+KeyEvent.KEYCODE_BACK);
-	    switch(keyCode){
-	    case KeyEvent.KEYCODE_BACK:
-			Log.d(TAG, "finishActivity");
-	    	this.finishActivity(RET_CAMERA_ACTIVITY);
-	    	this.finish();
-	        return false;
-	    }
-	    return super.onKeyDown(keyCode, event);
-	}
+
 	public void switchView(int mode, int old) {
 		if (mode == old) return;
 		
+		if (mode == VIEW_MODE_WEBVIEW) {
+			if (mDirtyPage.get()) 
+				mHandler.post(new Runnable(){
+					public void run(){
+						mWebview.loadUrl(url);
+					}
+				});			
+		}
 		if (old == VIEW_MODE_WEBVIEW) {
-			Mat mat = mWebview.createMatrics(this.cameraWidth, this.cameraHeight);
-			setImageMatrics(mat);
+			refreshWebviewBmp();
 		}
 			
 		switch(mode) {
@@ -282,7 +257,42 @@ public class CameraActivity extends BaseActivity implements CvCameraViewListener
 		}
 		
 	}
+	public void refreshWebviewBmp(){
+		//mWebviewBmp must be atomic processed.
+		synchronized (this.mSaveImageLock) {
+			if (mWebviewImage==null)
+				mWebviewImage = new Mat();
+			
+			Bitmap bitmap;
+			bitmap = mWebview.drawBitmap2(
+				cameraWidth, cameraHeight,
+				mCameraView.getWidth(), mCameraView.getHeight(),
+				mScaleFactor, 1);
+			Utils.bitmapToMat(bitmap, mWebviewImage);
+			
+			Log.d(TAG,"refreshWebviewBmp webviewimage:"+ mWebviewImage);
+			if (bitmap!=null)
+				bitmap.recycle();
+		}
+	}
 	
+	public void initWebView(int mode) {
+		Mat mat;
+		switch(mode) {
+		case VIEW_MODE_CAMERA:
+			break;
+		case VIEW_MODE_WEBVIEW:
+			break;
+		case VIEW_MODE_EXTRACT:
+			break;
+		case VIEW_MODE_MERGE:
+			mat = mWebview.createMatrics(this.cameraWidth, this.cameraHeight);
+			setImageMatrics(mat);
+			break;
+		default:
+			break;
+		}
+	}
 	public void resetView(View view){
 		FrameLayout fl;
 		FrameLayout.LayoutParams fllp;
@@ -302,41 +312,41 @@ public class CameraActivity extends BaseActivity implements CvCameraViewListener
 	
 	public void onCameraViewStarted(int width, int height) {
 		Log.d(TAG, "onCameraViewStarted: width:"+width + " height:"+height);
+
+		mWebview.setDefaultSize(width, height);
+		
 		mRgba = new Mat(height, width, CvType.CV_8UC4);
 		mIntermediateMat = new Mat(height, width, CvType.CV_8UC4);
 		mIntermediateMat2 = new Mat();
 		mIntermediateMat3 = new Mat();
-				
-		mDefP = new Point(-1, -1);
+
 		mDefaultKernel3x3 = new Mat( 3, 3, CvType.CV_8U);
 		mShapeningKernel3x3 = new Mat( 3, 3, CvType.CV_8U);
-
 		Scalar sa = Scalar.all(-1.0);
 		mShapeningKernel3x3.setTo(sa);
 		mShapeningKernel3x3.put(1, 1, 1+8);
-		
-		bl = new Scalar(0, 0, 255, 255);
-		wh = new Scalar(255, 255, 255, 255);
-
-		mScaleFactor = 1.0f;
 	}
 
 	public void onCameraViewStopped() {
 		Log.d(TAG, "onCameraViewStopped");
-		mRgba.release();
-		mIntermediateMat.release();
-		mIntermediateMat2.release();
-		mIntermediateMat3.release();
-		mDefaultKernel3x3.release();
-		mShapeningKernel3x3.release();
+		if (mRgba!=null)
+			mRgba.release();
+		if (mIntermediateMat != null)
+			mIntermediateMat.release();
+		if (mIntermediateMat2 != null)
+			mIntermediateMat2.release();
+		if (mIntermediateMat3 != null)
+			mIntermediateMat3.release();
+		if (mDefaultKernel3x3 != null)
+			mDefaultKernel3x3.release();
+		if (mShapeningKernel3x3 != null)
+			mShapeningKernel3x3.release();
 		
 	}
-
+	@Override
 	public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
 		Log.d(TAG, "onCameraFrame:"+viewMode + " start");
 
-		if (mIntermediateMat == null) mIntermediateMat = new Mat();
-		
 		switch (viewMode) {
 		default:
 		case VIEW_MODE_CAMERA:
@@ -355,6 +365,7 @@ public class CameraActivity extends BaseActivity implements CvCameraViewListener
 
 		}
 		Log.d(TAG, "onCameraFrame:"+viewMode+ " end:" + mRgba);
+		Log.d(TAG, "width:"+mRgba.cols()+ " height:"+mRgba.rows());
 		return mRgba;
 	}
 
@@ -377,7 +388,7 @@ public class CameraActivity extends BaseActivity implements CvCameraViewListener
 		} else if (item == mItemSaveImage) {
 			viewMode = VIEW_MODE_SAVE;
 		} else if (item == mItemSettings) {
-			viewMode = VIEW_MODE_SETTINGS;
+			setViewMode( VIEW_MODE_CAMERA );
 			intent = new Intent(this, com.hitsuji.android.Settings.class);
 			intent.setFlags(intent.getFlags() | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
 			this.startActivity(intent);
@@ -389,7 +400,6 @@ public class CameraActivity extends BaseActivity implements CvCameraViewListener
 	private void setExtractMatrics(CvCameraViewFrame inputFrame){
 		Log.d(TAG, "setExtractMatrics");
 		setThreshold();
-
 		mIntermediateMat = inputFrame.rgba();
 		Imgproc.cvtColor(mIntermediateMat, mIntermediateMat3, Imgproc.COLOR_RGB2HSV_FULL);
 
@@ -410,7 +420,7 @@ public class CameraActivity extends BaseActivity implements CvCameraViewListener
 			if (area > THRESHOLD_AREA ) {
 				list.add(m);
 			}
-		}		
+		}
 		mRgba.setTo(bl);
 		Mat mask = Mat.zeros(mIntermediateMat.rows(), mIntermediateMat.cols(), CvType.CV_8UC1);
 		Imgproc.drawContours(mask, list, -1, wh, Core.FILLED);
@@ -463,7 +473,7 @@ public class CameraActivity extends BaseActivity implements CvCameraViewListener
 				list.add(m);
 			}
 		}		
-		mRgba.setTo(bl);
+
 		Mat mask = Mat.zeros(mIntermediateMat.rows(), mIntermediateMat.cols(), CvType.CV_8UC1);
 		Imgproc.drawContours(mask, list, -1, wh, Core.FILLED);
 
@@ -478,32 +488,28 @@ public class CameraActivity extends BaseActivity implements CvCameraViewListener
 			Imgproc.dilate(mask, mask, 
 					mDefaultKernel3x3, mDefP, dilateErudeTimes);
 		}
-		/*
-		Bitmap bmp = BrowserActivity.drawBitmap(
-				mIntermediateMat.width(), 
-				mIntermediateMat.height(), 
-				mScaleFactor);
 
 		mRgba = new Mat(mIntermediateMat.height(), mIntermediateMat.width(), CvType.CV_8UC4);
-		mRgba.setTo(new Scalar(0,0,0,0));
-		
-		if (bmp!=null){
-			if (invertMask)
-				Core.bitwise_not(mask, mask);
-			Core.add(mRgba, mIntermediateMat, mRgba, mask);
-			Core.bitwise_not(mask, mIntermediateMat2);
-			Mat viewcap = new Mat();
-			Utils.bitmapToMat(bmp, viewcap);
-			Core.add(mRgba, viewcap, mRgba, mIntermediateMat2);
-			viewcap.release();
-			bmp.recycle();
+		mRgba.setTo(bk);
+		synchronized (mSaveImageLock) {
+			Mat webviewImage = mWebviewImage;
+			if (mWebviewImage !=null){
+				if (invertMask)
+					Core.bitwise_not(mask, mask);
+				Core.add(mRgba, mIntermediateMat, mRgba, mask);
+				Core.bitwise_not(mask, mIntermediateMat2);
+				//Log.d(TAG, "webimagebmp w:"+webviewImage.getWidth() + " h:"+webImageBmp.getHeight());
+				Log.d(TAG, "webviewimageimage:"+webviewImage);
+				//Log.d(TAG, "rgba:"+mRgba + " webimage:"+ newMat);
+				Core.add(mRgba, webviewImage, mRgba, mIntermediateMat2);
+			}
 		}
 		mask.release();
 		for (int i=0; i<contours.size(); i++) {
 			Mat m = contours.get(i);
 			m.release();
 		}
-				 */
+
 		contours.clear();
 	}
 
@@ -643,4 +649,9 @@ public class CameraActivity extends BaseActivity implements CvCameraViewListener
 			return true;
 		}
 	};
+	
+	public void moveAndRedrawWebView(float x, float y) {
+		mWebview.move(x, y);
+		this.refreshWebviewBmp();
+	}
 }
