@@ -265,10 +265,16 @@ public abstract class BaseActivity extends Activity implements CvCameraViewListe
 		Log.d(TAG, "onkeydown keycode:"+keyCode + " KEYCODE_BACK:"+KeyEvent.KEYCODE_BACK);
 	    switch(keyCode){
 	    case KeyEvent.KEYCODE_BACK:
+			if(viewMode == VIEW_MODE_WEBVIEW &&
+				(mWebview != null && mWebview.canGoBack())){
+				mWebview.goBack();
+				return true;
+			}
+	    	
 			Log.d(TAG, "finishActivity");
 	    	this.finishActivity(RET_CAMERA_ACTIVITY);
 	    	this.finish();
-	        return false;
+	        return true;
 	    }
 	    return super.onKeyDown(keyCode, event);
 	}

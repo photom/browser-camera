@@ -65,17 +65,12 @@ public class BrowserActivity extends BaseActivity   {
 
 	private Handler mHandler;
 
-	public static AtomicBoolean mViewLock = new AtomicBoolean(false);
-
 	private ProgressBar mProgressBar;
 
 	public AtomicBoolean mDirtyPage = new AtomicBoolean(true);
 	private volatile Mat mWebviewImage;
 	private volatile Mat mWebviewMask;
 
-	protected int getCameraViewId(){
-		return R.id.browser_camera_view;
-	}
 	/** Called when the activity is first created. */
 	@SuppressLint("SetJavaScriptEnabled")
 	@Override
@@ -132,7 +127,7 @@ public class BrowserActivity extends BaseActivity   {
 			}
 			@Override
 			public void onPageStarted(WebView view, String url, Bitmap favicon) {
-				mWebview.initContentWidth();
+				mWebview.initContentSize();
 				mHandler.post(new Runnable(){
 					public void run(){
 						mProgressBar.setVisibility(View.VISIBLE);
@@ -338,6 +333,12 @@ public class BrowserActivity extends BaseActivity   {
 			finish();
 		}
 	}
+	
+	@Override
+	protected int getCameraViewId(){
+		return R.id.browser_camera_view;
+	}
+	
 	public void switchView(int mode, int old) {
 		if (mode == old) return;
 		switch(mode) {
@@ -399,31 +400,6 @@ public class BrowserActivity extends BaseActivity   {
 		fllp.gravity = Gravity.CENTER;
 		fl.addView(view, fllp);
 	}
-
-	/*
-	public static void makePageDirty(){
-		if (self!=null)self.mDirtyPage.set(true);
-	}
-
-	public static Bitmap drawBitmap(int width, int height, float scale) {
-		return self==null || self.mWebview==null ? null : self.mWebview.drawBitmap(width, height, scale);
-	}*/
-	@Override
-	public boolean onKeyDown(int keyCode, KeyEvent event) {
-		if (keyCode == KeyEvent.KEYCODE_BACK) {
-			// When the user center presses, let them pick a contact.
-			if(imageProcessTarget !=
-					BrowserActivity.TARGET_BROWSER ||
-					viewMode == VIEW_MODE_WEBVIEW){
-				if (mWebview != null && mWebview.canGoBack() && !mViewLock.get()) {
-					mWebview.goBack();
-					return true;
-				}
-			}
-		}
-		return super.onKeyDown(keyCode, event);
-	}
-
 
 
 	public void setWebviewSize(final int width, final int height) {

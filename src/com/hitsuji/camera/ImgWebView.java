@@ -39,6 +39,8 @@ public class ImgWebView extends WebView {
 	private int mDefaultWidth = -1;
 	private int mDefaultHeight = -1;
 	private int mContentWidth = -1;
+	private int mContentHeight = -1;
+	private float mDevicePixelRatio = -1.0f;
 	private int mX = 0;
 	private int mY = 0;
 
@@ -75,8 +77,8 @@ public class ImgWebView extends WebView {
 		if (cameraWidth<=0 || cameraHeight<=0) return null;
 		if (getWidth()<=0 || getHeight()<=0) return null;
 
-		int cw = (int)(getContentWidth() * mScale);
-		int ch = (int)(getContentHeight() * mScale);
+		int cw = (int)(getContentWidth() * mScale * mDevicePixelRatio);
+		int ch = (int)(getContentHeight() * mScale * mDevicePixelRatio);
 		int imgWidth = getWidth() > cw ? getWidth() : cw;
 		int imgHeight = getHeight() > ch ? getHeight() : ch;
 		Log.d(TAG, "bmp w:"+cameraWidth +" h:"+ cameraHeight + " webviewscale:"+mScale);
@@ -116,8 +118,9 @@ public class ImgWebView extends WebView {
 		if (cameraWidth<=0 || cameraHeight<=0) return null;
 		if (viewWidth<=0 || viewHeight<=0) return null;
 		
-		int cw = (int)(getContentWidth() * mScale);
-		int ch = (int)(getContentHeight() * mScale);
+		int cw = (int)(getContentWidth() * mScale * mDevicePixelRatio);
+		int ch = (int)(getContentHeight() * mScale * mDevicePixelRatio);
+
 		int imgWidth = viewWidth > cw ? viewWidth : cw;
 		int imgHeight = viewHeight > ch ? viewHeight : ch;
 		Log.d(TAG, "bmp w:"+cameraWidth +" h:"+ cameraHeight + " webviewscale:"+mScale);
@@ -130,11 +133,12 @@ public class ImgWebView extends WebView {
 		this.draw(canvas);
 
 		Log.d(TAG, "pre x:"+ mX +" y:"+ mY);
+		/*
 		if (mX+cameraWidth>imgWidth) 
 			mX = imgWidth-cameraWidth;
 		if (mY+cameraHeight>imgHeight) 
 			mY = imgHeight-cameraHeight;
-		
+		*/
 		Matrix matrix = new Matrix();
 		float fx = (float)cameraWidth/(float)viewWidth;
 		float fy = (float)cameraHeight/(float)viewHeight;
@@ -181,16 +185,15 @@ public class ImgWebView extends WebView {
 	}
 	public void move(float x, float y) {
 		// TODO Auto-generated method stub
-		int cw = (int)(mScale * getContentWidth());
-		int ch = (int)(mScale * getContentHeight());
+		int cw = (int)((mScale * getContentWidth())*mDevicePixelRatio);
+		int ch = (int)((mScale * getContentHeight())*mDevicePixelRatio);
 		Log.d(TAG, "move mx:"+mX + " mY:"+mY + 
 				" defw:"+mDefaultWidth +  " defh:"+mDefaultHeight + 
 				" webw:"+getWidth() + " webh:"+getHeight()+
 				" contw:"+getContentWidth() + " conth:"+getContentHeight()+
 				" x:"+x + " y:"+y + " scale:"+mScale +
 				" cw:"+cw + " cy:"+ch);
-		if (mX+x<0) x = 0;
-		if (mY+y<0) y = 0;
+
 		int viewWidth = getWidth();
 		int viewHeight = getHeight();
 		
@@ -199,10 +202,20 @@ public class ImgWebView extends WebView {
 		int thh = viewHeight > ch ? 
 				viewHeight : ch;
 
-		if (mX+x+viewWidth>thw) x = 0;
-		if (mY+y+viewHeight>thh) y = 0;
-		mX += x;
-		mY += y;
+		if (mX+x<0) {
+			mX = 0;
+		} else if (mX+x+viewWidth>thw) {
+			mX = thw - viewWidth;
+		} else {
+			mX += x;			
+		}
+		if (mY+y<0) {
+			mY = 0;
+		} else if (mY+y+viewHeight>thh) {
+			mY = thh - viewHeight;
+		} else {
+			mY += y;
+		}
 		Log.d(TAG, "mx:"+mX +" my:"+mY + " x:"+x + " y:"+y + " thw:"+thw + " thh:"+thh);
 	}
 	public float getX(){
@@ -386,18 +399,31 @@ public class ImgWebView extends WebView {
     	public JavaScriptInterface(ImgWebView iwv){
     		imgWebView = iwv;
     	}
-        public int getContentWidth(String value) {
-        	Log.d(TAG, "JavaScriptInterface.getContentWidth val:"+value);
+        public void setContentWidth(String value) {
+        	Log.d(TAG, "JavaScriptInterface.setContentWidth val:"+value);
             if (value != null) {
             	int width = Integer.parseInt(value);
             	imgWebView.mContentWidth = width;
-                return width;
-            } else 
-            	return -1;
+            }
+        }
+        public void setContentHeight(String value) {
+        	Log.d(TAG, "JavaScriptInterface.setContentWidth val:"+value);
+            if (value != null) {
+            	int height = Integer.parseInt(value);
+            	imgWebView.mContentHeight = height;
+            }
+        }
+        public void setDevicePixelRatio(String value) {
+        	Log.d(TAG, "JavaScriptInterface.setDevicePixelRatio val:"+value);
+            if (value != null) {
+            	float ratio = Float.parseFloat(value);
+            	imgWebView.mDevicePixelRatio = ratio;
+            }
         }
     }
 
-	public void initContentWidth() {
+	public void initContentSize() {
 		mContentWidth = -1;
+		mContentHeight = -1;
 	}
 }

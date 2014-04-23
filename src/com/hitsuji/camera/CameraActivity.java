@@ -21,6 +21,7 @@ import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -86,10 +87,8 @@ public class CameraActivity extends BaseActivity {
 	private Handler mHandler;
 	private ProgressBar mProgressBar;
 
-	protected int getCameraViewId(){
-		return R.id.camera_camera_view;
-	}
 	/** Called when the activity is first created. */
+	@SuppressLint("SetJavaScriptEnabled")
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		Log.d(TAG, "called onCreate");
@@ -143,12 +142,16 @@ public class CameraActivity extends BaseActivity {
 				FrameLayout fl = (FrameLayout)CameraActivity.this.findViewById(R.id.cameralayout);
 				fl.removeView(mProgressBar);
 				mDirtyPage.set(false);
-				mWebview.loadUrl("javascript:window.HTMLOUT.getContentWidth(document.getElementsByTagName('html')[0].scrollWidth);");
+				String js = "javascript:"+
+						"window.HTMLOUT.setContentWidth(document.getElementsByTagName('html')[0].scrollWidth);"+
+						"window.HTMLOUT.setContentHeight(document.getElementsByTagName('html')[0].scrollHeight);" +
+						"window.HTMLOUT.setDevicePixelRatio(window.devicePixelRatio);";
+				mWebview.loadUrl(js);
 				super.onPageFinished(view, url);
 			}
 			@Override
 			public void onPageStarted(WebView view, String url, Bitmap favicon) {
-				mWebview.initContentWidth();
+				mWebview.initContentSize();
 				mHandler.post(new Runnable(){
 					public void run(){
 						mProgressBar.setVisibility(View.VISIBLE);
@@ -224,7 +227,10 @@ public class CameraActivity extends BaseActivity {
 		OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_2_4_8, this, mLoaderCallback);
 
 	}
-
+	@Override
+	protected int getCameraViewId(){
+		return R.id.camera_camera_view;
+	}
 
 	public void switchView(int mode, int old) {
 		if (mode == old) return;
@@ -260,22 +266,19 @@ public class CameraActivity extends BaseActivity {
 		
 	}
 	public void refreshWebviewBmp(){
-		//mWebviewBmp must be atomic processed.
-		synchronized (this.mSaveImageLock) {
-			if (mWebviewImage==null)
-				mWebviewImage = new Mat();
-			
-			Bitmap bitmap;
-			bitmap = mWebview.drawBitmap2(
-				cameraWidth, cameraHeight,
-				mCameraView.getWidth(), mCameraView.getHeight(),
-				mCameraView.getScale());
-			Utils.bitmapToMat(bitmap, mWebviewImage);
-			
-			Log.d(TAG,"refreshWebviewBmp webviewimage:"+ mWebviewImage);
-			if (bitmap!=null)
-				bitmap.recycle();
-		}
+		if (mWebviewImage==null)
+			mWebviewImage = new Mat();
+		
+		Bitmap bitmap;
+		bitmap = mWebview.drawBitmap2(
+			cameraWidth, cameraHeight,
+			mCameraView.getWidth(), mCameraView.getHeight(),
+			mCameraView.getScale());
+		Utils.bitmapToMat(bitmap, mWebviewImage);
+		
+		Log.d(TAG,"refreshWebviewBmp webviewimage:"+ mWebviewImage);
+		if (bitmap!=null)
+			bitmap.recycle();
 	}
 	
 	public void initWebView(int mode) {
