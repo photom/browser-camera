@@ -5,8 +5,8 @@ import java.lang.reflect.Method;
 
 public class Log {
 
-	private static final boolean DEBUG = true;
-	private static final boolean VERBOSE = true;
+	private static final boolean DEBUG = false;
+	private static final boolean VERBOSE = false;
 	
 
 	private final static Class [] klasses = {String.class, String.class};
